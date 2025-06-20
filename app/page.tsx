@@ -198,3 +198,7 @@ export default function CompleteWorldMap() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
