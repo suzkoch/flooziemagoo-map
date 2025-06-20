@@ -33,39 +33,57 @@ function useCountriesFromBlog(): Country[] {
 
   useEffect(() => {
     async function fetchPosts() {
-      const res = await fetch("https://public-api.wordpress.com/wp/v2/sites/flooziemagoo.wordpress.com/posts")
-      const posts = await res.json()
+      try {
+        const res = await fetch("https://public-api.wordpress.com/wp/v2/sites/flooziemagoo.wordpress.com/posts?per_page=100")
+        const posts = await res.json()
 
-      const parsed = posts.map((post: any) => {
-        const title = post.title.rendered;
-        const link = post.link;
+        const parsed = posts.map((post: any) => {
+          const title = post.title?.rendered || ""
+          const link = post.link
 
-        // Remove emoji, split on "|"
-        const parts = title.replace(/^[^\w\s]*/, "").split("|");
+          // Remove emojis and special chars from the start of title
+          const cleanedTitle = title.replace(/^[^\w\s]*/, "").trim()
+          const parts = cleanedTitle.split("|")
 
-        if (parts.length === 2) {
-          const countryName = parts[0].trim();
-          const recipeTitle = parts[1].trim();
+          console.log("🔍 Parsing title:", cleanedTitle)
 
-          const meta = countryMeta[countryName];
-          if (meta) {
-            return {
-              id: meta.id,
-              name: countryName,
-              hasRecipe: true,
-              votes: 0,
-              recipeTitle,
-              flag: meta.flag,
-              cuisine: meta.cuisine,
-              blogUrl: link,
-            } as Country;
+          if (parts.length !== 2) {
+            console.warn("❌ Skipped: unexpected format")
+            return null
           }
-        }
 
-        return null;
-      }).filter(Boolean);
+          const countryName = parts[0].trim()
+          const recipeTitle = parts[1].trim()
 
-      setCountries(parsed as Country[]);
+          // Try exact match, fallback to case-insensitive
+          const meta =
+            countryMeta[countryName] ||
+            Object.entries(countryMeta).find(([key]) =>
+              key.toLowerCase() === countryName.toLowerCase()
+            )?.[1]
+
+          if (!meta) {
+            console.warn("❌ No match in countryMeta for:", countryName)
+            return null
+          }
+
+          return {
+            id: meta.id,
+            name: countryName,
+            hasRecipe: true,
+            votes: 0,
+            recipeTitle,
+            flag: meta.flag,
+            cuisine: meta.cuisine,
+            blogUrl: link,
+          } as Country
+        }).filter(Boolean)
+
+        console.log("✅ Parsed countries:", parsed)
+        setCountries(parsed as Country[])
+      } catch (error) {
+        console.error("❌ Error fetching blog posts:", error)
+      }
     }
 
     fetchPosts()
