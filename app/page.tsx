@@ -36,48 +36,36 @@ function useCountriesFromBlog(): Country[] {
       const res = await fetch("https://public-api.wordpress.com/wp/v2/sites/flooziemagoo.wordpress.com/posts")
       const posts = await res.json()
 
-      const parsed = posts
-        .map((post: any) => {
-          const rawTitle = post.title.rendered || ""
-          const cleanTitle = rawTitle.replace(/<[^>]+>/g, "").trim()
-          const match = cleanTitle.match(/^[^\w\d]*([\w\s]+)\s[\|\-]\s(.+)$/)
+      const parsed = posts.map((post: any) => {
+        const title = post.title.rendered;
+        const link = post.link;
 
-          if (!match) {
-            console.warn("❌ Skipped post (no match):", cleanTitle)
-            return null
+        // Remove emoji, split on "|"
+        const parts = title.replace(/^[^\w\s]*/, "").split("|");
+
+        if (parts.length === 2) {
+          const countryName = parts[0].trim();
+          const recipeTitle = parts[1].trim();
+
+          const meta = countryMeta[countryName];
+          if (meta) {
+            return {
+              id: meta.id,
+              name: countryName,
+              hasRecipe: true,
+              votes: 0,
+              recipeTitle,
+              flag: meta.flag,
+              cuisine: meta.cuisine,
+              blogUrl: link,
+            } as Country;
           }
+        }
 
-          const [_, countryName, recipeTitle] = match
-          const trimmedCountry = countryName.trim()
+        return null;
+      }).filter(Boolean);
 
-          // fuzzy fallback match if exact match fails
-          const meta = countryMeta[trimmedCountry] ||
-            Object.entries(countryMeta).find(([key]) =>
-              key.toLowerCase() === trimmedCountry.toLowerCase()
-            )?.[1]
-
-          if (!meta) {
-            console.warn("❌ No countryMeta match for:", trimmedCountry)
-            return null
-          }
-
-          const countryData = {
-            id: meta.id,
-            name: trimmedCountry,
-            hasRecipe: true,
-            votes: 0,
-            recipeTitle: recipeTitle.trim(),
-            flag: meta.flag,
-            cuisine: meta.cuisine,
-            blogUrl: post.link,
-          } as Country
-
-          console.log("✅ Matched post:", countryData)
-          return countryData
-        })
-        .filter(Boolean)
-
-      setCountries(parsed as Country[])
+      setCountries(parsed as Country[]);
     }
 
     fetchPosts()
@@ -210,6 +198,3 @@ export default function CompleteWorldMap() {
           </div>
         </div>
       </div>
-    </div>
-  )
-}
